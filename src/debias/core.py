@@ -17,14 +17,16 @@ def process_sample(cpg_chrom_pos_list, output_dir, mc_file_type, row):
     print(f'Finished parsing {vcf_file}', flush=True)
     loci_blacklist = find_overlapping_positions(variant_loci, cpg_chrom_pos_list)
     del(variant_loci)
-    output_file = os.path.join(output_dir, f"{sample_name}.CpG_variants_blacklist.tsv")
-    with open(output_file,'w') as f:
+    blacklist_bedfile = os.path.join(output_dir, f"{sample_name}.CpG_variants_blacklist.bed")
+    with open(blacklist_bedfile,'w') as f:
         for chrom,pos in loci_blacklist:
-            f.write(f"{chrom}\t{pos}\n")
+            f.write(f"{chrom}\t{pos}\t{pos+1}\n")
 
     # step 2: remove those cytosines from the allc file
-    output_allc_file = os.path.join(output_dir, f"{sample_name}.var_masked.allc.tsv.gz")
-    mask_allc(allc_file, mc_file_type, loci_blacklist, output_allc_file)
+    print(f'Start processing {allc_file}', flush=True)
+    output_allc_file = os.path.join(output_dir, f"{sample_name}.var_masked.allc.tsv")
+    mask_allc_with_bedtools(allc_file, mc_file_type, blacklist_bedfile, output_dir, output_allc_file)
+    print(f'Result written to {output_allc_file}', flush=True)
 
 
 def run_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, mc_file_type):
