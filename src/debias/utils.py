@@ -5,6 +5,7 @@ import os
 import csv
 import sys
 import io
+import pysam
 
 def parse_samplesheet(input):
     with open(input, 'r') as csvfile:
@@ -59,9 +60,9 @@ def vcf_to_bed(vcf_file, out_bed_file):
             out.write(f"{chrom}\t{pos}\t{pos+1}\n")
 
 
-def allc_to_bed(allc_file, out_bed_file, mc_file_type):
+def allc_to_bed(allc_file, out_bed_file, has_header):
     input_is_gz = allc_file.endswith('.gz')
-    has_header = (mc_file_type == 'cov')
+    #has_header = (mc_file_type == 'cov')
 
     open_in = gzip.open if input_is_gz else open
 
@@ -76,16 +77,16 @@ def allc_to_bed(allc_file, out_bed_file, mc_file_type):
             f_out.write(f"{chrom}\t{pos}\t{pos+1}\t{rest}\n")
 
 
-def mask_allc_with_bedtools(allc_file, mc_file_type, blacklist_bedfile, output_dir, output_file):
+def mask_allc_with_bedtools(allc_file, has_header, blacklist_bedfile, output_dir, output_file):
     #with tempfile.TemporaryDirectory() as tmpdir:
     allc_bed = os.path.join(output_dir, f"{allc_file}.tmp.bed")
-    allc_to_bed(allc_file, allc_bed, mc_file_type)
+    allc_to_bed(allc_file, allc_bed, has_header)
 
     # subtract
     allc_bedtool = pybedtools.BedTool(allc_bed)
     mask_result = allc_bedtool.intersect(blacklist_bedfile, v=True)
 
-    with open(output_file, 'w') as out:
+    with open(os.path.join(output_dir, output_file), 'w') as out:
         for feature in mask_result:
             # feature[3:] are the original columns from allc
             out.write("\t".join(feature[3:]) + "\n")
@@ -93,3 +94,29 @@ def mask_allc_with_bedtools(allc_file, mc_file_type, blacklist_bedfile, output_d
     os.remove(allc_bed)
 
 
+
+def mask_bam(bam_file, vcf_file, output_dir, output_bam_file):
+    positions = parse_vcf(vcf_file)
+    output_file = os.path.join(output_dir, output_bam_file)
+    #modified_output_file = f"{output_dir}/{output_bam_file}.modified_reads.bam"
+    with pysam.AlignmentFile(bam_file, "rb") as in_bam, \
+            pysam.AlignmentFile(output_file, "wb", header=in_bam.header) as out_bam:
+    #    pysam.AlignmentFile(modified_output_file, "wb", header=in_bam.header) as modified_bam:
+
+        for read in in_bam:
+            modified = False
+            if not read.is_unmapped:
+                seq = list(read.query_sequence)
+                ref_positions = read.get_reference_positions(full_length=True)
+
+                for query_index, ref_pos in enumerate(ref_positions):
+                    if ref_pos is not None and (read.reference_name, ref_pos + 1) in positions:
+                        seq[query_index] = 'N'
+                        modified = True
+
+                read.query_sequence = ''.join(seq)
+
+            out_bam.write(read)
+            #if modified:
+            #    modified_bam.write(read)
+    # TODO: write to a summary file: how many reads (percentage) is modified due to variants
