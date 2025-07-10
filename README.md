@@ -37,16 +37,30 @@ This tool supports the following subcommands:
 
 **`--cpg_bedfile`**: a 0-based BED file containing all the CpG coordinates matching the reference genome build used in the input. The BED files for GRCh38 and T2T-CHM13v2.0 are provided here in `reference`.
 
-**`--blacklist_provided`**: when this option is enabled, the 2nd column provided in 'input' should be a blacklist (the first 2 column should be chromosome and position) that does not need further matching to a 'cpg_bedfile'. Enabling this option will skip generating a blacklist. Thus, 'cpg_bedfile' is not needed in this senario.
+**`--blacklist_provided`**: when this option is enabled, the 2nd column provided in 'input' should be a blacklist in the format of a BED file (the first 2 column should be chromosome and position, and the 3rd column should be the 2nd column +1) that does not need further matching to a 'cpg_bedfile'. Enabling this option will skip generating a blacklist. Thus, 'cpg_bedfile' is not needed in this senario.
 
 
 ### Examples
-Filter methylation calls:
+1. Filter methylation calls:
 ```bash
-debias filter_mc --input samplesheet.csv --cpg_bedfile Human_hg38.CpGsites.0based.sorted.bed --output_dir debias_outs --ncpus $SLURM_CPUS_PER_TASK
+debias filter_mc --input samplesheet.allc.csv --cpg_bedfile Human_hg38.CpGsites.0based.sorted.bed --output_dir debias_outs --ncpus $SLURM_CPUS_PER_TASK
+```
+
+samplesheet.allc.csv:
+```csv
+sample,vcf_file,allc_file
+test_sample1,/path/to/test_input_files/donor1.filtered_CpG_AF.vcf.gz,/path/to/test_input_files/cell1.allc.tsv.gz
+test_sample2,/path/to/test_input_files/donor2.filtered_CpG_AF.vcf.gz,/path/to/test_input_files/cell2.allc.tsv.gz
 ```
 
 Filter BAM alignments:
 ```bash
-debias filter_bam --input samplesheet.csv --cpg_bedfile Human_hg38.CpGsites.0based.sorted.bed --output_dir debias_outs --ncpus $SLURM_CPUS_PER_TASK
+debias filter_bam --input samplesheet.bam.csv --cpg_bedfile Human_hg38.CpGsites.0based.sorted.bed --output_dir debias_outs --ncpus $SLURM_CPUS_PER_TASK
+```
+
+samplesheet.bam.csv:
+```csv
+sample,vcf_file,bam_file
+test_sample1,/path/to/test_input_files/donor1.filtered_CpG_AF.vcf.gz,/path/to/test_input_files/cell1.deduplicated.filtered.sorted.bam
+test_sample2,/path/to/test_input_files/donor2.filtered_CpG_AF.vcf.gz,/path/to/test_input_files/cell2.deduplicated.filtered.sorted.bam
 ```

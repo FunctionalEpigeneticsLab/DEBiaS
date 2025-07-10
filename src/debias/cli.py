@@ -1,5 +1,5 @@
 import argparse
-from debias.core import run_parallel
+from debias.core import run_parallel, run_bam_parallel
 
 # multi-command CLI
 def main():
@@ -34,8 +34,7 @@ def main():
     elif args.command == 'filter_bam':
         print("Running filter_bam")
         print(args.input)
-        # TODO: add process bam workflow
-        run_parallel_bam(samplesheet=args.input, cpg_bedfile=args.cpg_bedfile, output_dir=args.output_dir, ncpus=args.ncpus, blacklist_provided=args.blacklist_provided)
+        run_bam_parallel(samplesheet=args.input, cpg_bedfile=args.cpg_bedfile, output_dir=args.output_dir, ncpus=args.ncpus, blacklist_provided=args.blacklist_provided)
 
 if __name__ == "__main__":
     main()
