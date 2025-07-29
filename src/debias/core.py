@@ -83,4 +83,34 @@ def run_bam_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, blacklist_prov
     with Pool(ncpus) as pool:
         results = pool.map(process_func, rows)
 
-# TODO: add process to only produce the blacklists
+def process_blacklist_sample(cpg_bed, output_dir, row):
+    sample_name, vcf_file = row
+    
+    if not Path(vcf_file).exists():
+        raise FileNotFoundError(f"Missing VCF file: {vcf_file}")
+    
+    if not Path(cpg_bed).exists():
+        raise FileNotFoundError(f"Missing CpG BED file: {cpg_bed}")
+    
+    print(f'Generating blacklist for {sample_name}', flush=True)
+    blacklist_bedfile = find_overlapping_positions(vcf_file, cpg_bed, output_dir, sample_name)
+    print(f'Blacklist BED file written to {blacklist_bedfile}', flush=True)
+    return blacklist_bedfile
+
+def run_blacklist_parallel(samplesheet, cpg_bedfile, output_dir, ncpus):
+    """Generate blacklist BED files for each sample"""
+    
+    os.makedirs(output_dir, exist_ok=True)
+    rows = parse_samplesheet(samplesheet)
+    
+    if cpg_bedfile is None:
+        raise FileNotFoundError("Missing cpg_bedfile - required for blacklist generation")
+    
+    print('Start generating blacklists...')
+    process_func = partial(process_blacklist_sample, cpg_bedfile, output_dir)
+    
+    with Pool(ncpus) as pool:
+        results = pool.map(process_func, rows)
+    
+    print(f'Generated {len(results)} blacklist BED files in {output_dir}')
+

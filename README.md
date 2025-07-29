@@ -26,15 +26,20 @@ This tool supports the following subcommands:
 
 - `filter_mc`: Filter methylation calls.
 - `filter_bam`: Filter BAM files.
+- `generate_blacklist`: Generate blacklist BED files from VCF files without performing filtering.
 
 ### Parameters
 
-**`--input`**: a CSV file with 3 columns:
-1. **sample**: Sample name, used as the output file prefix.
-2. **vcf_file**: Path to a `.vcf` or `.vcf.gz` file, pre-filtered to include only variants with non-reference genotypes (`0/1` or `1/1`).
-3. **allc_file**/**bam_file**:  
-   - For `filter_mc`: Path to a `.allc.tsv`, `.allc.tsv.gz` (Methylpy/AllCools), or `.cov`, `.cov.gz` (Bismark) file. These must be tab-delimited with chromosome and cytosine position as the first two columns.
-   - For `filter_bam`: Path to a `.bam` file.
+**`--input`**: a CSV file with columns depending on the subcommand:
+- For `filter_mc` and `filter_bam`: 3 columns required:
+  1. **sample**: Sample name, used as the output file prefix.
+  2. **vcf_file**: Path to a `.vcf` or `.vcf.gz` file, pre-filtered to include only variants with non-reference genotypes (`0/1` or `1/1`).
+  3. **allc_file**/**bam_file**:  
+     - For `filter_mc`: Path to a `.allc.tsv`, `.allc.tsv.gz` (Methylpy/AllCools), or `.cov`, `.cov.gz` (Bismark) file. These must be tab-delimited with chromosome and cytosine position as the first two columns.
+     - For `filter_bam`: Path to a `.bam` file.
+- For `generate_blacklist`: 2 columns required:
+  1. **sample**: Sample name, used as the output file prefix.
+  2. **vcf_file**: Path to a `.vcf` or `.vcf.gz` file, pre-filtered to include only variants with non-reference genotypes (`0/1` or `1/1`).
 
 **`--has_header`**: the allc_file contains header line or not (default: False)
 
@@ -72,4 +77,16 @@ debias filter_bam --input samplesheet.bam.csv --cpg_bedfile Human_hg38.CpGsites.
 sample,vcf_file,bam_file
 test_sample1,/path/to/test_input_files/donor1.filtered.vcf.gz,/path/to/test_input_files/cell1.deduplicated.filtered.sorted.bam
 test_sample2,/path/to/test_input_files/donor2.filtered.vcf.gz,/path/to/test_input_files/cell2.deduplicated.filtered.sorted.bam
+```
+
+3. Generate blacklist BED files only:
+```bash
+debias generate_blacklist --input samplesheet.blacklist.csv --cpg_bedfile Human_hg38.CpGsites.0based.sorted.bed --output_dir debias_outs --ncpus $SLURM_CPUS_PER_TASK
+```
+
+`samplesheet.blacklist.csv`
+```csv
+sample,vcf_file
+test_sample1,/path/to/test_input_files/donor1.filtered.vcf.gz
+test_sample2,/path/to/test_input_files/donor2.filtered.vcf.gz
 ```

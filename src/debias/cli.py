@@ -1,5 +1,5 @@
 import argparse
-from debias.core import run_parallel, run_bam_parallel
+from debias.core import run_parallel, run_bam_parallel, run_blacklist_parallel
 
 # multi-command CLI
 def main():
@@ -24,6 +24,10 @@ def main():
     parser_filter_bam = subparsers.add_parser('filter_bam', parents=[common_parser], help='Filter BAM file')
     parser_filter_bam.add_argument('--input', required=True, help='csv file with columns: [sample,vcf_file,bam_file]. "sample" will be used as prefix for the output.')
 
+    # generate_blacklist
+    parser_generate_blacklist = subparsers.add_parser('generate_blacklist', parents=[common_parser], help='Generate blacklist BED files from VCF files')
+    parser_generate_blacklist.add_argument('--input', required=True, help='csv file with columns: [sample,vcf_file]. "sample" will be used as prefix for the output blacklist BED files.')
+
     args = parser.parse_args()
 
     # dispatch logic
@@ -35,6 +39,10 @@ def main():
         print("Running filter_bam")
         print(args.input)
         run_bam_parallel(samplesheet=args.input, cpg_bedfile=args.cpg_bedfile, output_dir=args.output_dir, ncpus=args.ncpus, blacklist_provided=args.blacklist_provided)
+
+    elif args.command == 'generate_blacklist':
+        print("Running generate_blacklist")
+        run_blacklist_parallel(samplesheet=args.input, cpg_bedfile=args.cpg_bedfile, output_dir=args.output_dir, ncpus=args.ncpus)
 
 if __name__ == "__main__":
     main()
