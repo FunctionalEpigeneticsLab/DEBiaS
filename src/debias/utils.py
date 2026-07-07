@@ -5,6 +5,20 @@ import csv
 import sys
 import io
 import pysam
+from pathlib import Path
+
+def get_vcf_prefix(vcf_file):
+    """
+    Extract the VCF prefix from the file path.
+    E.g., /path/to/test_input_files/donor2.filtered.vcf.gz -> donor2.filtered
+    """
+    basename = os.path.basename(vcf_file)
+    # Remove .vcf or .vcf.gz extension
+    if basename.endswith('.vcf.gz'):
+        return basename[:-7]
+    elif basename.endswith('.vcf'):
+        return basename[:-4]
+    return basename
 
 def parse_samplesheet(input):
     with open(input, 'r') as csvfile:
@@ -52,6 +66,7 @@ def find_overlapping_positions(vcf_file, cpg_bed, output_dir, sample_name):
     return blacklist_bedfile
 
 def allc_to_bed(allc_file, out_bed_file, has_header):
+
     input_is_gz = allc_file.endswith('.gz')
     #has_header = (mc_file_type == 'cov')
 
@@ -69,6 +84,7 @@ def allc_to_bed(allc_file, out_bed_file, has_header):
 
 
 def mask_allc_with_bedtools(allc_file, has_header, blacklist_bedfile, output_dir, output_file):
+    os.makedirs(output_dir, exist_ok=True)
     allc_bed = os.path.join(output_dir, f"{allc_file}.tmp.bed")
     allc_to_bed(allc_file, allc_bed, has_header)
 

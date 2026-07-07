@@ -196,3 +196,5 @@ cython_debug/
 # other
 push
 example
+OPTIMIZATION_SUMMARY.md
+test_optimization_logic.py

@@ -121,4 +121,5 @@ test_sample2,/path/to/test_input_files/donor2.CpG_variants_blacklist.bed,/path/t
 ```
 
 ## Scalability
-Parallel processing using 30 cores for 4,000 nuclei, runtime: ~10 min, memory usage: <1 GB
+
+
