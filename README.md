@@ -1,4 +1,4 @@
-# A command-line tool for filtering variant loci in single cell or (pseudo)bulk bisulfite sequencing data
+# A command-line tool for masking variant loci in single-cell or (pseudo)bulk bisulfite sequencing data
 **DEBias (Detection and Elimination of Bias related to SNPs in bisulfite Sequencing)**
 
 *Author: Lab for Functional Epigenetics, KU Leuven*
@@ -6,13 +6,14 @@
 ---
 
 *Recommended workflow for handeling variants:*  
-<img width="1510" height="697" alt="image" src="https://github.com/user-attachments/assets/6fd2e615-066b-41f1-a702-a567b4c5583f" />
+<img width="755" height="348.5" alt="image" src="https://github.com/user-attachments/assets/6fd2e615-066b-41f1-a702-a567b4c5583f" />
 
 ---
 
 ## Functions
-- Filter variant loci based on BED file to obtain a comprehensive "blacklist" including the adjacent positions in the corresponding CpG dinucleotide.
-- Remove blacklisted loci in methylation calling ALLC/COV files or BAM files, which can come from either single cells or (pseudo)bulk samples.
+Filter variant/blacklisted loci for CG or non-CG (CH) loci from DNA methylation calls. Masking happens when:
+- CG: C itself is a variant, or the adjacent position in the corresponding CpG dinucleotide is a variant.
+- CH: 1) the cytosine base itself is polymorphic/indel-affected, or 2) the immediate sequence context (strand '+': position i+1; strand '-': position i-1) shows CH to CG conversion.
 
 ## Prerequisites
 - Python >=3.9
@@ -153,4 +154,5 @@ debias generate_blacklist \
 ```
 
 ## Scalability for CG ALLC masking
+<img width="523.5" height="371" alt="image" src="https://github.com/user-attachments/assets/2ca593e8-2298-4fb8-a7c6-9002af29f642" />
 
