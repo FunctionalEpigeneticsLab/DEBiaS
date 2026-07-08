@@ -1,5 +1,8 @@
 # A command-line tool for filtering variant loci in single cell or (pseudo)bulk bisulfite sequencing data
 **DEBias (Detection and Elimination of Bias related to SNPs in bisulfite Sequencing)**
+
+*Author: Lab for Functional Epigenetics, KU Leuven*
+
 ---
 
 *Recommended workflow for handeling variants:*  
@@ -53,6 +56,15 @@ This tool supports the following subcommands:
 > - Example usage:  
 	`python extract_cpg_bed.py -i genome.fa -o CpGsites.bed --threads 10`
 > - Resources: It takes ~8G, 2 min for the human genome.
+
+**`--CH`** (default: False): enable CH-only masking mode.
+
+**`--ch_bedfile`**: a precomputed 0-based CH BED (4 columns: `chrom start end strand`) generated from reference FASTA using [scripts/extract_ch_bed.py](scripts/extract_ch_bed.py). In CH mode, DEBiaS masks a CH cytosine call if:
+- the CH cytosine position is variant/indel,
+- or the immediate context base is variant/indel (forward context `+1`, reverse context `-1`).
+
+Generate once and reuse across runs:
+`python scripts/extract_ch_bed.py -i genome.fa -o CHsites.bed`
 
 **`--blacklist_provided`** (default: False): When this tag is enabled, the 2nd column in the input file should be a blacklist in BED format (with chromosome and position as the first two columns, and the third column set to position + 1). This blacklist will be used directly as the loci to be masked, without further matching to a `cpg_bedfile`, and no additional blacklist will be generated. Therefore, in this scenario, `cpg_bedfile` is not required.
 
@@ -120,6 +132,25 @@ test_sample1,/path/to/test_input_files/donor1.CpG_variants_blacklist.bed,/path/t
 test_sample2,/path/to/test_input_files/donor2.CpG_variants_blacklist.bed,/path/to/test_input_files/cell2.allc.tsv.gz
 ```
 
-## Scalability
+5. Filter methylation calls in CH mode:
+```bash
+debias filter_mc \
+	--CH \
+	--input samplesheet.allc.csv \
+	--ch_bedfile CHsites.bed \
+	--output_dir debias_outs \
+	--ncpus $SLURM_CPUS_PER_TASK
+```
 
+6. Generate CH blacklist BED files only:
+```bash
+debias generate_blacklist \
+	--CH \
+	--input samplesheet.blacklist.csv \
+	--ch_bedfile CHsites.bed \
+	--output_dir debias_outs \
+	--ncpus $SLURM_CPUS_PER_TASK
+```
+
+## Scalability for CG ALLC masking
 
