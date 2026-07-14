@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""
-Extract 0-based CH cytosine locations from a genome FASTA into one BED file.
-
-Output columns:
-    chrom  start  end  strand
-
-Where `start:end` is the 1-bp cytosine-call position to mask in CH mode:
-    strand '+' : forward CH cytosine (reference base C, context at +1)
-    strand '-' : reverse CH cytosine represented by reference base G (context at -1)
-
-This single BED is reused across runs with DEBiaS `--CH --ch_bedfile`.
-
-Usage:
-    python extract_ch_bed.py -i genome.fa -o ch_sites.bed
-"""
 
 import argparse
 import sys
@@ -39,9 +24,6 @@ def write_ch_sites_for_record(record, out_handle):
 
 
 def process_fasta_file(input_file, output_file):
-    """
-    Stream FASTA records sequentially to keep memory usage low.
-    """
     print(f"Processing FASTA file: {input_file}", file=sys.stdout)
     print(f"Output BED file: {output_file}", file=sys.stdout)
 
@@ -77,7 +59,6 @@ def process_fasta_file(input_file, output_file):
 
 
 def validate_fasta_file(filename):
-    """Validate that the input file is a valid FASTA file."""
     try:
         with open(filename, 'r') as handle:
             next(SeqIO.parse(handle, "fasta"))

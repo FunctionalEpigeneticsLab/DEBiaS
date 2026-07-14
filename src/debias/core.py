@@ -71,6 +71,12 @@ def run_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, has_header, blackl
 
     # parse the files that only needs to be read once
     os.makedirs(output_dir, exist_ok=True)
+
+    pybedtools_tmp = os.path.join(output_dir, 'tmp')
+    os.makedirs(pybedtools_tmp, exist_ok=True)
+    pybedtools.set_tempdir(pybedtools_tmp)
+    print(f"pybedtools tempdir: {pybedtools_tmp}", flush=True)
+
     rows = parse_samplesheet(samplesheet)
 
     if blacklist_provided:
@@ -135,6 +141,12 @@ def process_bam_sample_with_blacklist(output_dir, row):
 def run_bam_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, blacklist_provided, ch_mode=False, ch_bedfile=None):
 
     os.makedirs(output_dir, exist_ok=True)
+    
+    pybedtools_tmp = os.path.join(output_dir, 'tmp')
+    os.makedirs(pybedtools_tmp, exist_ok=True)
+    pybedtools.set_tempdir(pybedtools_tmp)
+    print(f"pybedtools tempdir: {pybedtools_tmp}", flush=True)
+
     rows = parse_samplesheet(samplesheet)
 
     if blacklist_provided:

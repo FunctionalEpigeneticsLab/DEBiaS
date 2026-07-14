@@ -57,7 +57,6 @@ def find_overlapping_positions(vcf_file, cpg_bed, output_dir, sample_name):
     os.remove(vcf_bed)
     return blacklist_bedfile
 
-
 def parse_vcf_for_ch_masking(vcf_file):
     snv_alt_by_pos = defaultdict(set)
     affected_positions = set()
@@ -75,6 +74,8 @@ def parse_vcf_for_ch_masking(vcf_file):
             pos1 = int(cols[1])
             ref = cols[3].upper()
             alts = cols[4].split(',')
+
+            # mark all reference positions spanned by this variant as affected
             ref_span = max(1, len(ref))
             for p in range(pos1, pos1 + ref_span):
                 affected_positions.add((chrom, p))
@@ -83,8 +84,15 @@ def parse_vcf_for_ch_masking(vcf_file):
                 alt = alt.upper()
                 if alt == '.':
                     continue
-                if len(ref) == 1 and len(alt) == 1 and alt in {'A', 'C', 'G', 'T'}:
-                    snv_alt_by_pos[(chrom, pos1)].add(alt)
+
+                # simply record every ALT base at its corresponding genomic position.
+                # SNV:     len(ref)=1, len(alt)=1  → records alt[0] at pos1
+                # MNV:     len(ref)>1, len(alt)>1  → records each alt base at pos1+i
+                # insertion with anchor: alt[0]==ref[0], len(alt)>len(ref) -> records anchor (unchanged) + inserted bases
+                # deletion: len(alt) < len(ref)  → records fewer bases than ref span (affected_positions already marks deleted positions)
+                for i, base in enumerate(alt):
+                    if base in {'A', 'C', 'G', 'T'}:
+                        snv_alt_by_pos[(chrom, pos1 + i)].add(base)
 
     return snv_alt_by_pos, affected_positions
 
@@ -94,10 +102,8 @@ def build_ch_blacklist_from_bed(vcf_file, ch_bedfile, out_bed_file, output_dir):
     build a CH blacklist BED from VCF + pre-computed CH BED
     rules implemented:
         1) direct variant/indel at CH cytosine position (BED start/end)
-        2) context-changing SNP at context base:
-           strand '+' context ALT includes G (CH -> CG)
-           strand '-' context ALT includes C (CH -> CG on reverse strand)
-        3) indel/complex variant at immediate context base
+        2) context-changing SNP at context base: strand '+' context ALT includes G (CH -> CG), OR strand '-' context ALT includes C (CH -> CG on reverse strand)
+        3) indel/complex variant at immediate context base (deprecated - not masked now)
     """
     if not Path(ch_bedfile).exists():
         raise FileNotFoundError(f"Missing CH BED file: {ch_bedfile}")
@@ -129,9 +135,9 @@ def build_ch_blacklist_from_bed(vcf_file, ch_bedfile, out_bed_file, output_dir):
                 ctx_pos1 = end + 1
                 context_to_cg = 'G' in snv_alt_by_pos.get((chrom, ctx_pos1), set())
 
-            context_indel_or_complex = (chrom, ctx_pos1) in affected_positions and not snv_alt_by_pos.get((chrom, ctx_pos1), set())
+            #context_indel_or_complex = (chrom, ctx_pos1) in affected_positions and not snv_alt_by_pos.get((chrom, ctx_pos1), set()) # deprecated rule
 
-            if direct_variant or context_to_cg or context_indel_or_complex:
+            if direct_variant or context_to_cg:
                 masked.add((chrom, start, end))
 
     with open(out_bed_file, 'w') as out:
@@ -144,47 +150,151 @@ def build_ch_blacklist_from_bed(vcf_file, ch_bedfile, out_bed_file, output_dir):
 def allc_to_bed(allc_file, out_bed_file, has_header):
 
     input_is_gz = allc_file.endswith('.gz')
-    #has_header = (mc_file_type == 'cov')
-
     open_in = gzip.open if input_is_gz else open
 
+    skipped = 0
     with open_in(allc_file, 'rt') as f_in, open(out_bed_file, 'w') as f_out:
         for i, line in enumerate(f_in):
+
+            # Skip header
             if has_header and i == 0:
-                continue  # skip header for BED
-            fields = line.strip().split('\t')
+                continue
+
+            # Skip blank or whitespace-only lines
+            stripped = line.strip()
+            if not stripped:
+                skipped += 1
+                continue
+
+            fields = stripped.split('\t')
+
+            # Skip lines with insufficient columns or empty fields
+            if len(fields) < 2 or fields[0] == '' or fields[1] == '':
+                print(f"WARNING: skipping malformed line {i+1} in {allc_file}: {repr(line.rstrip())}",
+                      flush=True)
+                skipped += 1
+                continue
+
             chrom = fields[0]
-            pos = int(fields[1])
+
+            # Skip non-integer position
+            try:
+                pos = int(fields[1])
+            except ValueError:
+                print(f"WARNING: skipping line {i+1} in {allc_file}: "
+                      f"non-integer position {repr(fields[1])}: {repr(line.rstrip())}",
+                      flush=True)
+                skipped += 1
+                continue
+
+            # Skip invalid 1-based coordinates
+            if pos < 1:
+                print(f"WARNING: skipping line {i+1} in {allc_file}: "
+                      f"pos={pos} is not a valid 1-based coordinate",
+                      flush=True)
+                skipped += 1
+                continue
+
             rest = "\t".join(fields)
             f_out.write(f"{chrom}\t{pos-1}\t{pos}\t{rest}\n")
 
+    if skipped > 0:
+        print(f"WARNING: {allc_file} — skipped {skipped} malformed line(s) total", flush=True)
+
+def _report_malformed_bed(bed_file, error_msg):
+    print(f"\n{'='*60}", flush=True)
+    print(f"ERROR: MalformedBedLineError in: {bed_file}", flush=True)
+    print(f"pybedtools says: {error_msg}", flush=True)
+    print(f"Scanning file for malformed lines...", flush=True)
+    print(f"{'='*60}", flush=True)
+
+    issues_found = 0
+    try:
+        with open(bed_file, 'r') as f:
+            for i, line in enumerate(f, start=1):
+                stripped = line.rstrip('\n')
+                fields = stripped.split('\t')
+
+                reason = None
+
+                if stripped == '' or stripped.isspace():
+                    reason = "blank/whitespace line"
+                elif len(fields) < 3:
+                    reason = f"too few fields ({len(fields)}, need >=3)"
+                else:
+                    chrom, start, end = fields[0], fields[1], fields[2]
+                    if chrom == '':
+                        reason = "empty chrom"
+                    elif start == '' or end == '':
+                        reason = f"empty start or end field: start={repr(start)}, end={repr(end)}"
+                    else:
+                        try:
+                            s, e = int(start), int(end)
+                            if s < 0:
+                                reason = f"negative start: {s}"
+                            elif e < 0:
+                                reason = f"negative end: {e}"
+                            elif s > e:
+                                reason = f"start > stop: {s} > {e}"
+                        except ValueError:
+                            reason = f"non-integer start/end: start={repr(start)}, end={repr(end)}"
+
+                if reason:
+                    print(f"  Line {i:>6d}: [{reason}]  →  {repr(stripped)}", flush=True)
+                    issues_found += 1
+
+                    if issues_found >= 20:
+                        print(f"  ... (stopping after 20 issues)", flush=True)
+                        break
+
+    except Exception as scan_err:
+        print(f"  Could not scan file: {scan_err}", flush=True)
+
+    if issues_found == 0:
+        print(f"  No obvious issues found — error may be in BED format columns beyond col 3", flush=True)
+
+    print(f"{'='*60}\n", flush=True)
 
 def mask_allc_with_bedtools(allc_file, has_header, blacklist_bedfile, output_dir, output_file):
     os.makedirs(output_dir, exist_ok=True)
     allc_bed = os.path.join(output_dir, f"{allc_file}.tmp.bed")
     allc_to_bed(allc_file, allc_bed, has_header)
 
-    # subtract
     allc_bedtool = pybedtools.BedTool(allc_bed)
     mask_result = allc_bedtool.intersect(blacklist_bedfile, v=True)
 
-    # count before and after
-    num_total = sum(1 for _ in allc_bedtool)
-    num_retained = sum(1 for _ in mask_result)
-    num_removed = num_total-num_retained
+    # count total — catch malformed lines with context
+    try:
+        num_total = sum(1 for _ in allc_bedtool)
+    except pybedtools.cbedtools.MalformedBedLineError as e:
+        _report_malformed_bed(allc_bed, str(e))
+        raise
+
+    # count retained — catch malformed lines with context
+    try:
+        num_retained = sum(1 for _ in mask_result)
+    except pybedtools.cbedtools.MalformedBedLineError as e:
+        _report_malformed_bed(allc_bed, str(e))
+        raise
+
+    num_removed = num_total - num_retained
     percent_removed = round((num_removed / num_total) * 100, 2)
 
     # write result
-    with gzip.open(os.path.join(output_dir, output_file), 'wt') as out:
-        for feature in mask_result:
-            # feature[3:] are the original columns from allc
-            out.write("\t".join(feature[3:]) + "\n")
+    try:
+        with gzip.open(os.path.join(output_dir, output_file), 'wt') as out:
+            for feature in mask_result:
+                out.write("\t".join(feature[3:]) + "\n")
+    except pybedtools.cbedtools.MalformedBedLineError as e:
+        _report_malformed_bed(allc_bed, str(e))
+        raise
 
-    # remove temp file
-    os.remove(allc_bed)
+    if os.environ.get('DEBIAS_KEEP_TMP'):
+        print(f"DEBUG: keeping tmp file: {allc_bed}", flush=True)
+    else:
+        os.remove(allc_bed)
 
-    # write report
-    report_file=os.path.join(output_dir, output_file.replace('.gz','').replace('.tsv','.report.tsv'))
+    report_file = os.path.join(output_dir, output_file.replace('.gz', '').replace('.tsv', '.report.tsv'))
     with open(report_file, "w") as report:
         report.write(f"Total input lines\t{num_total}\n")
         report.write(f"Lines retained\t{num_retained}\n")
