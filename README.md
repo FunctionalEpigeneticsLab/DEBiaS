@@ -1,7 +1,7 @@
 # A command-line tool for masking variant loci in single-cell or (pseudo)bulk bisulfite sequencing data
-**DEBias (Detection and Elimination of Bias related to SNPs in bisulfite Sequencing)**
+**DEBiaS (Detection and Elimination of Bias related to SNPs in bisulfite Sequencing)**
 
-*Author: Lab for Functional Epigenetics, KU Leuven*
+*Lab for Functional Epigenetics, KU Leuven*
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## Functions
 Filter variant/blacklisted loci for CG or non-CG (CH) loci from DNA methylation calls. Masking happens when:
-- CG: C itself is a variant, or the adjacent position in the corresponding CpG dinucleotide is a variant.
+- CG: C itself is a variant, or the adjacent position in the corresponding CpG dinucleotide is a variant. The adjacent cytosine is relevant when your methylation calls are not CpG-merged.
 - CH: 1) the cytosine base itself is polymorphic/indel-affected, or 2) the immediate sequence context (strand '+': position i+1; strand '-': position i-1) shows CH to CG conversion.
 
 ## Prerequisites
@@ -34,7 +34,7 @@ This tool supports the following subcommands:
 
 - `filter_mc`: Filter methylation calls.
 - `filter_bam`: Filter BAM files.
-- `generate_blacklist`: Generate blacklist BED files from VCF files without performing filtering.
+- `generate_blacklist`: Generate blacklist BED files (i.e., cytosine loci affected by variants) from VCF files without performing filtering.
 
 ### Parameters
 
@@ -67,7 +67,10 @@ This tool supports the following subcommands:
 Generate once and reuse across runs:
 `python scripts/extract_ch_bed.py -i genome.fa -o CHsites.bed`
 
-**`--blacklist_provided`** (default: False): When this tag is enabled, the 2nd column in the input file should be a blacklist in BED format (with chromosome and position as the first two columns, and the third column set to position + 1). This blacklist will be used directly as the loci to be masked, without further matching to a `cpg_bedfile`, and no additional blacklist will be generated. Therefore, in this scenario, `cpg_bedfile` is not required.
+**`--blacklist_provided`** (default: False): When this tag is enabled, the 2nd column in the input file should be a blacklist in BED format (with chromosome and position as the first two columns, and the third column set to position + 1). This blacklist will be used directly as the loci to be masked, without further matching to a `cpg_bedfile`, and no additional blacklist will be generated. Therefore, in this scenario, `cpg_bedfile` is not required. 
+
+### Note on software behavior
+DEBiaS now scans for blacklist BED corresponding to the VCF files in the output directory if they have already been generated. This means that in case of interruption in running DEBiaS after the completion of the blacklist BED generation step, it will not start the whole process all over again, which can save computational resources. However, if the blacklist BED generation step is incomplete, please remove the output directory and rerun the whole process.
 
 ### Examples
 **1. Filter methylation calls:**
@@ -155,4 +158,6 @@ debias generate_blacklist \
 
 ## Scalability for CG ALLC masking
 <img width="523.5" height="371" alt="image" src="https://github.com/user-attachments/assets/2ca593e8-2298-4fb8-a7c6-9002af29f642" />
+
+
 

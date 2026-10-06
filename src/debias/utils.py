@@ -30,10 +30,15 @@ def parse_bed(bed_file):
         for line in f:
             cols = line.split()
             chrom = str(cols[0])
-            pos1 = int(cols[1])+1 # because BED is 0-based
-            pos2 = int(cols[2])
-            position_groups.append({(chrom, pos1), (chrom, pos2)})
-    positions = set().union(*position_groups)
+    #        pos1 = int(cols[1])+1
+    #        pos2 = int(cols[2])
+    #        position_groups.append({(chrom, pos1), (chrom, pos2)})
+    #positions = set().union(*position_groups)
+            start = int(cols[1])
+            end = int(cols[2])
+            for pos1 in range(start + 1, end + 1):
+                positions.add((chrom, pos1))
+
     return positions
 
 def vcf_to_bed(vcf_file, out_bed_file):
@@ -45,7 +50,10 @@ def vcf_to_bed(vcf_file, out_bed_file):
             cols = line.split('\t')
             chrom = cols[0]
             pos = int(cols[1]) # 1-based position
-            out.write(f"{chrom}\t{pos-1}\t{pos}\n") # writing to 0-based BED
+            #out.write(f"{chrom}\t{pos-1}\t{pos}\n")
+            ref = cols[3]
+            start = pos - 1
+            out.write(f"{chrom}\t{start}\t{start + len(ref)}\n")
 
 def find_overlapping_positions(vcf_file, cpg_bed, output_dir, sample_name):
     vcf_bed=os.path.join(output_dir, f"{sample_name}.vcf.tmp.bed")
@@ -135,8 +143,6 @@ def build_ch_blacklist_from_bed(vcf_file, ch_bedfile, out_bed_file, output_dir):
                 ctx_pos1 = end + 1
                 context_to_cg = 'G' in snv_alt_by_pos.get((chrom, ctx_pos1), set())
 
-            #context_indel_or_complex = (chrom, ctx_pos1) in affected_positions and not snv_alt_by_pos.get((chrom, ctx_pos1), set()) # deprecated rule
-
             if direct_variant or context_to_cg:
                 masked.add((chrom, start, end))
 
@@ -156,11 +162,9 @@ def allc_to_bed(allc_file, out_bed_file, has_header):
     with open_in(allc_file, 'rt') as f_in, open(out_bed_file, 'w') as f_out:
         for i, line in enumerate(f_in):
 
-            # Skip header
             if has_header and i == 0:
                 continue
 
-            # Skip blank or whitespace-only lines
             stripped = line.strip()
             if not stripped:
                 skipped += 1
@@ -168,7 +172,6 @@ def allc_to_bed(allc_file, out_bed_file, has_header):
 
             fields = stripped.split('\t')
 
-            # Skip lines with insufficient columns or empty fields
             if len(fields) < 2 or fields[0] == '' or fields[1] == '':
                 print(f"WARNING: skipping malformed line {i+1} in {allc_file}: {repr(line.rstrip())}",
                       flush=True)
@@ -177,7 +180,6 @@ def allc_to_bed(allc_file, out_bed_file, has_header):
 
             chrom = fields[0]
 
-            # Skip non-integer position
             try:
                 pos = int(fields[1])
             except ValueError:
@@ -251,7 +253,7 @@ def _report_malformed_bed(bed_file, error_msg):
         print(f"  Could not scan file: {scan_err}", flush=True)
 
     if issues_found == 0:
-        print(f"  No obvious issues found — error may be in BED format columns beyond col 3", flush=True)
+        print(f"  No obvious issue found", flush=True)
 
     print(f"{'='*60}\n", flush=True)
 
