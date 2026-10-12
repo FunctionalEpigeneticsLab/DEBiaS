@@ -301,7 +301,7 @@ def mask_allc_with_bedtools(allc_file, has_header, blacklist_bedfile, output_dir
         report.write(f"Total input lines\t{num_total}\n")
         report.write(f"Lines retained\t{num_retained}\n")
         report.write(f"Lines removed\t{num_removed}\n")
-        report.write(f"Percentage removed: {percent_removed}%\n")
+        report.write(f"Percentage removed\t{percent_removed}%\n")
 
 def mask_bam(bam_file, blacklist_bedfile, output_dir, output_bam_file):
     positions = parse_bed(blacklist_bedfile)

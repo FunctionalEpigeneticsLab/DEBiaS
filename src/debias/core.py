@@ -14,7 +14,6 @@ def process_sample(output_dir, has_header, blacklist_bedfile, row):
     if not Path(allc_file).exists():
         raise FileNotFoundError(f"Missing ALLC file: {allc_file}")
 
-    # remove those cytosines from the allc file
     print(f'Start processing {allc_file}', flush=True)
     mask_allc_with_bedtools(allc_file, has_header, blacklist_bedfile, output_dir, output_allc_file)
     print(f'Result written to {output_allc_file}', flush=True)
@@ -26,7 +25,6 @@ def generate_vcf_blacklists(rows, cpg_bedfile, output_dir, ch_mode=False, ch_bed
     """
     unique_vcfs = {}
     
-    # Collect unique VCF files
     for row in rows:
         sample_name, vcf_file, _ = row
         if vcf_file not in unique_vcfs:
@@ -34,7 +32,6 @@ def generate_vcf_blacklists(rows, cpg_bedfile, output_dir, ch_mode=False, ch_bed
                 raise FileNotFoundError(f"Missing VCF file: {vcf_file}")
             unique_vcfs[vcf_file] = None
     
-    # Generate blacklist for each unique VCF using VCF prefix as the output name
     print(f'Generating {len(unique_vcfs)} unique blacklist(s)...')
     for vcf_file in unique_vcfs:
         vcf_prefix = get_vcf_prefix(vcf_file)
@@ -80,10 +77,8 @@ def run_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, has_header, blackl
     rows = parse_samplesheet(samplesheet)
 
     if blacklist_provided:
-        # When blacklist_provided=True, the 2nd column is already a blacklist BED file
         print('Processing samples with provided blacklists...')
         
-        # Create rows with the blacklist file path (2nd column is the blacklist)
         rows_with_blacklist = [(row[0], row[1], row[2], row[1]) for row in rows]
         process_func = partial(process_sample_with_blacklist, output_dir, has_header)
         
@@ -96,7 +91,6 @@ def run_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, has_header, blackl
         if (not ch_mode) and cpg_bedfile is None:
             raise FileNotFoundError("Missing cpg_bedfile - required for blacklist generation")
         
-        # Generate blacklists once per unique VCF file
         vcf_to_blacklist = generate_vcf_blacklists(
             rows,
             cpg_bedfile,
@@ -105,10 +99,8 @@ def run_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, has_header, blackl
             ch_bedfile=ch_bedfile,
         )
         
-        # Now process all samples in parallel, using pre-generated blacklists
         print('Start processing samples...')
         
-        # Create modified rows with blacklist paths
         rows_with_blacklist = []
         for row in rows:
             sample_name, vcf_file, allc_file = row
@@ -128,7 +120,6 @@ def process_bam_sample(output_dir, blacklist_bedfile, row):
     if not Path(bam_file).exists():
         raise FileNotFoundError(f"Missing BAM file: {bam_file}")
 
-    # remove those cytosines from the BAM file
     print(f'Start processing {bam_file}', flush=True)
     mask_bam(bam_file, blacklist_bedfile, output_dir, output_bam_file)
     print(f'Result written to {output_bam_file}', flush=True)
@@ -150,7 +141,6 @@ def run_bam_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, blacklist_prov
     rows = parse_samplesheet(samplesheet)
 
     if blacklist_provided:
-        # When blacklist_provided=True, the 2nd column is already a blacklist BED file
         print('Processing BAM files with provided blacklists...')
         rows_with_blacklist = [(row[0], row[1], row[2], row[1]) for row in rows]
         process_func = partial(process_bam_sample_with_blacklist, output_dir)
@@ -164,7 +154,6 @@ def run_bam_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, blacklist_prov
         if (not ch_mode) and cpg_bedfile is None:
             raise FileNotFoundError("Missing cpg_bedfile - required for blacklist generation")
         
-        # Generate blacklists once per unique VCF file
         vcf_to_blacklist = generate_vcf_blacklists(
             rows,
             cpg_bedfile,
@@ -173,10 +162,8 @@ def run_bam_parallel(samplesheet, cpg_bedfile, output_dir, ncpus, blacklist_prov
             ch_bedfile=ch_bedfile,
         )
         
-        # Now process all BAM files in parallel, using pre-generated blacklists
         print('Start processing BAM files...')
         
-        # Create modified rows with blacklist paths
         rows_with_blacklist = []
         for row in rows:
             sample_name, vcf_file, bam_file = row
